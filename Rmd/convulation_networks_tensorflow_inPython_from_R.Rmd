@@ -23,13 +23,13 @@ This short introduction uses Keras to:
     Train this neural network.
     And, finally, evaluate the accuracy of the model.
 
-This document was build from RStudio using an RMarkdown literate programming script and was publish to RStudio::CONNECT to host the html rendered version, you see here. The template used is ["rmdformats::downcute"](https://github.com/juba/rmdformats). Click this link for more details and more examples of other templates.
+This document was build from RStudio using an RMarkdown literate programming script and was published to RStudio::CONNECT to host the html rendered version, you see here. The template used is ["rmdformats::downcute"](https://github.com/juba/rmdformats). Click this link for more details and more examples of other templates. The rendered version of this script is hosted [here](https://datascience.hu.nl/rsconnect/deep-learning-with-python-from-r/)
 
 Download and install TensorFlow 2. Import TensorFlow into your Python environment. To keep things simple, I decided to install it in the base environment for now. I recommend to work with local virtual environments though.
 
 Run the following one-time in the Terminal:
 
-```{bash, eval=FALSE }
+```{bash, eval=FALSE}
 pip install tensorflow
 pip install tensorflow_hub
 pip install numpy
@@ -54,7 +54,7 @@ import tensorflow as tf
 
 # Load the data
 Load and prepare the MNIST dataset. Convert the samples from integers to floating-point numbers:
-```{python, cache=TRUE}
+```{python}
 mnist = tf.keras.datasets.mnist
 
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -81,7 +81,7 @@ predictions
 ```
 
 The tf.nn.softmax function converts these logits to "probabilities" for each class:
-```{python, cache=TRUE}
+```{python}
 tf.nn.softmax(predictions).numpy()
 
 loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
@@ -95,7 +95,7 @@ This untrained model gives probabilities close to random (1/10 for each class), 
 
 # Model fit
 The Model.fit method adjusts the model parameters to minimize the loss:     
-```{python, cache=TRUE}
+```{python}
 model.compile(optimizer='adam',
               loss=loss_fn,
               metrics=['accuracy'])
@@ -120,6 +120,12 @@ probability_model = tf.keras.Sequential([
 probability_model(x_test[:5])
 ```
 
+# Get the results into R
+```{r}
+
+```
+
+
 # Source the complete python script
 You can also source the complete python script with all the above command as:
 ```{r, eval=FALSE}
@@ -130,3 +136,4 @@ reticulate::source_python(
   )
 )
 ```
+
