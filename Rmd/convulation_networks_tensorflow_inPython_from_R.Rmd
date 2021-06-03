@@ -1,0 +1,132 @@
+---
+title: "TensorFlow examples in Python from RStudio"
+author: "Marc A.T. Teunis, PhD" 
+date: "`r Sys.time()`"
+output: 
+  rmdformats::downcute:
+    self_contained: TRUE
+    number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Intro
+I will try to run the Python script from RStudio, using the `{reticulate}` Python interface for R. The script we are going to run was derived [from](https://www.tensorflow.org/tutorials/quickstart/beginner) the beginners tutorial at the TensorFlow homepage. And can be found here: './py/tf_intro.py'
+
+To get all files related to this tutorial, visit [this repo on Github:](https://github.com/uashogeschoolutrecht/python_from_rstudio) 
+
+This short introduction uses Keras to:
+
+    Build a neural network that classifies images.
+    Train this neural network.
+    And, finally, evaluate the accuracy of the model.
+
+This document was build from RStudio using an RMarkdown literate programming script and was publish to RStudio::CONNECT to host the html rendered version, you see here. The template used is ["rmdformats::downcute"](https://github.com/juba/rmdformats). Click this link for more details and more examples of other templates.
+
+Download and install TensorFlow 2. Import TensorFlow into your Python environment. To keep things simple, I decided to install it in the base environment for now. I recommend to work with local virtual environments though.
+
+Run the following one-time in the Terminal:
+
+```{bash, eval=FALSE }
+pip install tensorflow
+pip install tensorflow_hub
+pip install numpy
+pip install pandas
+```
+
+# Packages and libraries
+This loads the required R and Python packages to be able to run Python code in RStudio and to further process the model output in R. 
+```{r}
+library(tidyverse)
+library(reticulate)
+```
+
+Import python libraries in your R session
+```{r}
+reticulate::import("tensorflow")
+```
+
+```{python}
+import tensorflow as tf
+```
+
+# Load the data
+Load and prepare the MNIST dataset. Convert the samples from integers to floating-point numbers:
+```{python, cache=TRUE}
+mnist = tf.keras.datasets.mnist
+
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
+x_train, x_test = x_train / 255.0, x_test / 255.0
+
+```
+
+# Define model and Neural network
+Build the tf.keras.Sequential model by stacking layers. Choose an optimizer and loss function for training:
+```{python}
+model = tf.keras.models.Sequential([
+  tf.keras.layers.Flatten(input_shape=(28, 28)),
+  tf.keras.layers.Dense(128, activation='relu'),
+  tf.keras.layers.Dropout(0.2),
+  tf.keras.layers.Dense(10)
+])
+```
+
+# Get model metrics
+For each example the model returns a vector of "logits" or "log-odds" scores, one for each class.
+```{python}
+predictions = model(x_train[:1]).numpy()
+predictions
+```
+
+The tf.nn.softmax function converts these logits to "probabilities" for each class:
+```{python, cache=TRUE}
+tf.nn.softmax(predictions).numpy()
+
+loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+
+loss_fn(y_train[:1], predictions).numpy()
+```
+
+This loss is equal to the negative log probability of the true class: It is zero if the model is sure of the correct class.
+
+This untrained model gives probabilities close to random (1/10 for each class), so the initial loss should be close to -tf.math.log(1/10) ~= 2.3.
+
+# Model fit
+The Model.fit method adjusts the model parameters to minimize the loss:     
+```{python, cache=TRUE}
+model.compile(optimizer='adam',
+              loss=loss_fn,
+              metrics=['accuracy'])
+
+model.fit(x_train, y_train, epochs=5)
+
+model.evaluate(x_test,  y_test, verbose=2)
+```
+
+# Evaluate
+The Model.evaluate method checks the models performance, usually on a "Validation-set" or "Test-set".
+
+The image classifier is now trained to ~98% accuracy on this dataset. To learn more, read the TensorFlow tutorials.
+
+If you want your model to return a probability, you can wrap the trained model, and attach the softmax to it:
+```{python}
+probability_model = tf.keras.Sequential([
+  model,
+  tf.keras.layers.Softmax()
+])
+
+probability_model(x_test[:5])
+```
+
+# Source the complete python script
+You can also source the complete python script with all the above command as:
+```{r, eval=FALSE}
+reticulate::source_python(
+  here::here(
+    "py",
+    "tf_intro.py"
+  )
+)
+```
