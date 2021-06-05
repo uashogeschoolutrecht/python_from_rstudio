@@ -6,6 +6,7 @@ output:
   rmdformats::downcute:
     self_contained: TRUE
     number_sections: TRUE
+    keep_md: TRUE
 ---
 
 ```{r setup, include=FALSE}
@@ -13,15 +14,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Intro
-I will try to run the Python script from RStudio, using the `{reticulate}` Python interface for R. The script we are going to run was derived [from](https://www.tensorflow.org/tutorials/quickstart/beginner) the beginners tutorial at the TensorFlow homepage. And can be found here: './py/tf_intro.py'
+In this demo I will show you how to run Python from RStudio, using the `{reticulate}` Python interface for R. The Python code that we are going to run was derived [from the beginners tutorial at the TensorFlow homepage](https://www.tensorflow.org/tutorials/quickstart/beginner). To get all files related to this tutorial, visit [this repo on Github:](https://github.com/uashogeschoolutrecht/python_from_rstudio). The Python commands below can be found in the script: './py/tf_intro.py' in Github repo.
 
-To get all files related to this tutorial, visit [this repo on Github:](https://github.com/uashogeschoolutrecht/python_from_rstudio) 
+This short introduction to deep learning uses Keras to:
 
-This short introduction uses Keras to:
-
-    Build a neural network that classifies images.
-    Train this neural network.
-    And, finally, evaluate the accuracy of the model.
+    - Build a neural network (model) that classifies images.
+    - Train this neural network.
+    - And, finally, evaluate the accuracy of the model.
 
 This document was build from RStudio using an RMarkdown literate programming script and was published to RStudio::CONNECT to host the html rendered version, you see here. The template used is ["rmdformats::downcute"](https://github.com/juba/rmdformats). Click this link for more details and more examples of other templates. The rendered version of this script is hosted [here](https://datascience.hu.nl/rsconnect/deep-learning-with-python-from-r/)
 
@@ -105,6 +104,23 @@ model.fit(x_train, y_train, epochs=5)
 model.evaluate(x_test,  y_test, verbose=2)
 ```
 
+# Visualize 'accuracy' and 'loss'
+```{python, results='hide'}
+from keras.models import Sequential
+from keras.layers import Dense
+import matplotlib.pyplot as plt
+import numpy
+import pandas as pd
+
+history = model.fit(x_train, y_train, epochs=5)
+print(history.history.keys())
+```
+
+```{python}
+pd.DataFrame(history.history).plot(figsize=(8,5))
+plt.show()
+```
+
 # Evaluate
 The Model.evaluate method checks the models performance, usually on a "Validation-set" or "Test-set".
 
@@ -121,13 +137,118 @@ probability_model(x_test[:5])
 ```
 
 # Get the results into R
+
+To work with the results from the previous Python code, in RStudio you can use the `py` R object. Subsetting to an individual Python object is done using the `$` R operator. On the other hand R objects can be accessed from Python via the `r` object in your Python environment. Subsetting on the R object level can be achieved using a `.` (dot)). Below I show you examples for both cases:
+
+## Accessing Python objects from R
 ```{r}
+py$x_test %>% as_tibble()
+py$predictions %>% as_tibble()
+```
+
+## Accessing R objects from Python
+To do this we first need an R object. So far we did not create anything in our R environment, we just loaded a bunch of R packages. Let's stick to MNIST. There is also an R implementation of Keras called the `{keras}` R package. This R `{keras}` package has the MNIST data set also build in. Let's load that dataset as an R object and then access that data set from Python.
+
+The code below is not a very R way of doing things. In R you should try to keep things together in a list or a dataframe, in stead of having these loose vectors flying around in different places. There are better ways to do this, but for now I leave it like this so you can really follow what's going on. More compact code is often a bit harder to read. 
+```{r}
+library(keras)
+mnist_r <- dataset_mnist()
+x_train <- mnist_r$train$x
+y_train <- mnist_r$train$y
+x_test <- mnist_r$test$x
+y_test <- mnist_r$test$y
+
+## show one object
+x_train %>% as_tibble()
+```
+
+Now we will access one of the above R objects from Python
+```{python}
+r.x_train
+```
+
+# Plotting the MNIST hand written digits in R
+Now that we know how to access the MNIST data from R, we can leverage R's visualization powers, without the need to load the data into R again (we have it already in our Python environment from the code we ran in the first steps of this demo). 
+Below, I show how to access the training data in R by using the `py` environment. You can also interactively explore all R and Python objects in RStudio:
+
+```{r}
+knitr::include_graphics(
+  here::here(
+    "img",
+    "python_env.png"
+  )
+)
+
+knitr::include_graphics(
+  here::here(
+    "img",
+    "r_env.png"
+  )
+)
+```
+
+## Do the actual plotting
+First, we use base-R to plot the first 36 digits in the MNIST train dataset.
+```{r, fig.width=20, fig.height=15}
+mnist <- py$mnist
+x_train <- py$x_train
+y_train <- py$y_train
+  
+# visualize the digits
+par(mfcol=c(6,6))
+par(mar=c(0, 0, 3, 0), xaxs='i', yaxs='i')
+for (idx in 1:36) { 
+     im <- x_train[idx,,]
+    im <- t(apply(im, 2, rev)) 
+    image(1:28, 1:28, im, col=gray((0:255)/255), 
+          xaxt='n', main=paste(y_train[idx]))
+}
+```
+
+# Plotting using {ggplot2}
+R is famous for it's plotting capabilities. I prefer the grammar of graphics above the other two systems in R (`{base}` and `{lattice}`). The grammar of graphics has been implemented in the `{ggplot2}` R package. Here I show how to plot 1 digit randomly sampled from the MNIST train data.
+```{r}
+set.seed(1234)
+py$x_train[sample(1:100,1), 1:28, 1:28] %>%
+                as_tibble() %>% 
+                rownames_to_column(var = 'y') %>% 
+                gather(x, val, V1:V28) %>%
+                mutate(x = str_replace(x, 'V', '')) %>% 
+                mutate(x = as.numeric(x),
+                       y = as.numeric(y)) %>% 
+                mutate(y = 28-y) %>%
+                ggplot(aes(x, y))+
+                geom_tile(aes(fill = val+1))+
+                coord_fixed()+
+                theme_void()+
+                theme(legend.position="none")
+```
+
+## Plotting accurancy and loss with ggplot2
+```{r}
+# build data frame from history
+accuracy <- py$history$history$accuracy %>%
+  as_tibble %>%
+  mutate(metric = "acc",
+         epoch = c(1:5))
+loss <- py$history$history$loss %>%
+  as_tibble() %>%
+  mutate(metric = "loss",
+         epoch = c(1:5))
+
+dplyr::bind_rows(accuracy, loss) %>%
+  ggplot(aes(x = epoch, y = value)) +
+  geom_line(aes(colour = metric), size = 1) +
+  theme_bw() +
+  ggtitle("Accuracy and loss over epochs")
+
 
 ```
 
 
 # Source the complete python script
-You can also source the complete python script with all the above command as:
+You can also source the complete python script as showed below. This will execute all the Python commands showed in this demo. Te individual Python objects will be available to you in R via `py$<python_object_name>` and in Python in the Python REPL and python code chunk via `<python_object_name>`. This is all leveraged in RStudio by the [`{reticulate}` R package](https://rstudio.github.io/reticulate/).
+
 ```{r, eval=FALSE}
 reticulate::source_python(
   here::here(
